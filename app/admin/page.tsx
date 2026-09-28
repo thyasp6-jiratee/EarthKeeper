@@ -3,9 +3,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { 
-  Plus, Trash2, Edit2, Users, MapPin, Trash, Leaf, 
-  Shield, UserCog, Calendar, Mail, Phone 
+import {
+  Plus, Trash2, Edit2, Users, MapPin, Trash, Leaf,
+  Shield, UserCog, Calendar, Mail, Phone
 } from 'lucide-react';
 
 // ===== METADATA =====
@@ -18,17 +18,7 @@ export const metadata = {
 export const revalidate = 60;
 
 // ===== TYPES =====
-type UserWithCount = {
-  id: string;
-  nama: string;
-  email: string;
-  noHp: string | null;
-  role: string;
-  createdAt: Date;
-  _count: {
-    laporanSampah: number;
-  };
-};
+type StatusCounts = Record<string, number>;
 
 // ===== MAIN COMPONENT =====
 export default async function AdminPage() {
@@ -89,59 +79,86 @@ export default async function AdminPage() {
       prisma.laporanSampah.count(),
       prisma.laporanSampah.groupBy({
         by: ['status'],
-        _count: true,
+        _count: {
+          _all: true,
+        },
+        orderBy: {
+          status: 'asc',
+        },
       }),
     ]),
   ]);
 
   const [totalUsers, totalJenis, totalWilayah, totalLaporan, laporanByStatus] = stats;
 
-  const statusCounts = laporanByStatus.reduce((acc, curr) => {
-    acc[curr.status] = curr._count;
+  // ✅ FIX: pakai ._all
+  const statusCounts: StatusCounts = laporanByStatus.reduce((acc, curr) => {
+    acc[curr.status] = curr._count._all;
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as StatusCounts);
 
   // ===== STATISTICS CARDS =====
   const statCards = [
-    { 
-      label: 'Total Pengguna', 
-      value: totalUsers, 
-      icon: Users, 
+    {
+      label: 'Total Pengguna',
+      value: totalUsers,
+      icon: Users,
       color: 'from-purple-500 to-purple-600',
       bg: 'bg-purple-50',
       border: 'border-purple-500',
     },
-    { 
-      label: 'Total Laporan', 
-      value: totalLaporan, 
-      icon: Leaf, 
+    {
+      label: 'Total Laporan',
+      value: totalLaporan,
+      icon: Leaf,
       color: 'from-emerald-500 to-emerald-600',
       bg: 'bg-emerald-50',
       border: 'border-emerald-500',
     },
-    { 
-      label: 'Jenis Sampah', 
-      value: totalJenis, 
-      icon: Trash, 
+    {
+      label: 'Jenis Sampah',
+      value: totalJenis,
+      icon: Trash,
       color: 'from-amber-500 to-amber-600',
       bg: 'bg-amber-50',
       border: 'border-amber-500',
     },
-    { 
-      label: 'Wilayah', 
-      value: totalWilayah, 
-      icon: MapPin, 
+    {
+      label: 'Wilayah',
+      value: totalWilayah,
+      icon: MapPin,
       color: 'from-blue-500 to-blue-600',
       bg: 'bg-blue-50',
       border: 'border-blue-500',
     },
   ];
 
-  // ===== STATUS BADGES =====
+  // ===== STATUS BADGES (EXPLICIT CLASS, JANGAN DYNAMIC) =====
   const statusBadges = [
-    { status: 'MENUNGGU', label: 'Menunggu', color: 'gray' },
-    { status: 'DIPROSES', label: 'Diproses', color: 'amber' },
-    { status: 'SELESAI', label: 'Selesai', color: 'green' },
+    {
+      status: 'MENUNGGU',
+      label: 'Menunggu',
+      wrapperClass: 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-500',
+      labelClass: 'text-gray-700',
+      valueClass: 'text-gray-800',
+      badgeClass: 'bg-gray-500',
+    },
+    {
+      status: 'DIPROSES',
+      label: 'Diproses',
+      wrapperClass: 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-500',
+      labelClass: 'text-amber-700',
+      valueClass: 'text-amber-800',
+      badgeClass: 'bg-amber-500',
+    },
+    {
+      status: 'SELESAI',
+      label: 'Selesai',
+      wrapperClass: 'bg-gradient-to-r from-green-50 to-green-100 border-green-500',
+      labelClass: 'text-green-700',
+      valueClass: 'text-green-800',
+      badgeClass: 'bg-green-500',
+    },
   ];
 
   // ===== ROLE BADGE COLOR =====
@@ -170,7 +187,7 @@ export default async function AdminPage() {
         <div className="bg-gradient-to-r from-purple-700 to-purple-900 rounded-2xl shadow-xl p-6 mb-8 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500 rounded-full opacity-10 -mr-32 -mt-32"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-400 rounded-full opacity-10 -ml-24 -mb-24"></div>
-          
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
             <div className="flex items-center gap-4">
               <div className="bg-amber-400 p-3 rounded-2xl">
@@ -178,9 +195,7 @@ export default async function AdminPage() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold">Admin Panel</h1>
-                <p className="text-purple-200 mt-1">
-                  Kelola sistem Earth Keeper
-                </p>
+                <p className="text-purple-200 mt-1">Kelola sistem Earth Keeper</p>
               </div>
             </div>
             <Link
@@ -198,8 +213,8 @@ export default async function AdminPage() {
           {statCards.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className={`${stat.bg} rounded-2xl shadow-lg p-6 hover:shadow-xl transition border-l-4 ${stat.border}`}
               >
                 <div className="flex items-center justify-between">
@@ -219,18 +234,18 @@ export default async function AdminPage() {
         {/* STATUS QUICK VIEW */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {statusBadges.map((item) => (
-            <div 
-              key={item.status} 
-              className={`bg-gradient-to-r from-${item.color}-50 to-${item.color}-100 rounded-xl p-4 border-l-4 border-${item.color}-500`}
+            <div
+              key={item.status}
+              className={`rounded-xl p-4 border-l-4 ${item.wrapperClass}`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className={`text-${item.color}-700 font-semibold`}>{item.label}</p>
-                  <p className={`text-2xl font-bold text-${item.color}-800`}>
+                  <p className={`font-semibold ${item.labelClass}`}>{item.label}</p>
+                  <p className={`text-2xl font-bold ${item.valueClass}`}>
                     {statusCounts[item.status] || 0}
                   </p>
                 </div>
-                <div className={`bg-${item.color}-500 p-2 rounded-full`}>
+                <div className={`p-2 rounded-full ${item.badgeClass}`}>
                   <span className="text-white font-bold text-xs">
                     {statusCounts[item.status] || 0}
                   </span>
@@ -260,7 +275,7 @@ export default async function AdminPage() {
               </Link>
             </div>
           </div>
-          
+
           {users.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -284,9 +299,11 @@ export default async function AdminPage() {
                   {users.map((u) => (
                     <tr key={u.id} className="border-b hover:bg-purple-50 transition">
                       <td className="py-3 text-sm font-medium text-gray-800">{u.nama}</td>
-                      <td className="py-3 text-sm text-gray-600 flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {u.email}
+                      <td className="py-3 text-sm text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {u.email}
+                        </span>
                       </td>
                       <td className="py-3 text-sm text-gray-600">
                         {u.noHp ? (
@@ -308,19 +325,21 @@ export default async function AdminPage() {
                           {u._count.laporanSampah} laporan
                         </span>
                       </td>
-                      <td className="py-3 text-sm text-gray-500 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {formatDate(u.createdAt)}
+                      <td className="py-3 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(u.createdAt)}
+                        </span>
                       </td>
                       <td className="py-3 text-sm">
                         <div className="flex items-center justify-center gap-2">
-                          <button 
+                          <button
                             className="p-1 text-blue-600 hover:bg-blue-50 rounded transition"
                             aria-label={`Edit ${u.nama}`}
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button 
+                          <button
                             className="p-1 text-red-600 hover:bg-red-50 rounded transition"
                             aria-label={`Hapus ${u.nama}`}
                           >
@@ -351,7 +370,7 @@ export default async function AdminPage() {
               Tambah Jenis Sampah
             </button>
           </div>
-          
+
           {jenisSampah.length === 0 ? (
             <div className="text-center py-8">
               <Trash className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -372,13 +391,13 @@ export default async function AdminPage() {
                     {item._count.laporanSampah} laporan
                   </span>
                   <div className="flex items-center gap-1">
-                    <button 
+                    <button
                       className="p-1 text-blue-600 hover:bg-amber-200 rounded transition opacity-0 group-hover:opacity-100"
                       aria-label={`Edit ${item.namaJenis}`}
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
-                    <button 
+                    <button
                       className="p-1 text-red-600 hover:bg-amber-200 rounded transition opacity-0 group-hover:opacity-100"
                       aria-label={`Hapus ${item.namaJenis}`}
                     >
@@ -406,7 +425,7 @@ export default async function AdminPage() {
               Tambah Wilayah
             </button>
           </div>
-          
+
           {wilayah.length === 0 ? (
             <div className="text-center py-8">
               <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -427,13 +446,13 @@ export default async function AdminPage() {
                     {item._count.laporanSampah} laporan
                   </span>
                   <div className="flex items-center gap-1">
-                    <button 
+                    <button
                       className="p-1 text-blue-600 hover:bg-blue-200 rounded transition opacity-0 group-hover:opacity-100"
                       aria-label={`Edit ${item.namaWilayah}`}
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
-                    <button 
+                    <button
                       className="p-1 text-red-600 hover:bg-blue-200 rounded transition opacity-0 group-hover:opacity-100"
                       aria-label={`Hapus ${item.namaWilayah}`}
                     >
