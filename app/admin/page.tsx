@@ -91,11 +91,13 @@ export default async function AdminPage() {
 
   const [totalUsers, totalJenis, totalWilayah, totalLaporan, laporanByStatus] = stats;
 
-  // ✅ FIX: pakai ._all
-  const statusCounts: StatusCounts = laporanByStatus.reduce((acc, curr) => {
-    acc[curr.status] = curr._count._all;
-    return acc;
-  }, {} as StatusCounts);
+  // ===== STATUS COUNTS (FIX TypeScript) =====
+  const statusCounts: StatusCounts = {};
+  laporanByStatus.forEach((item) => {
+    // Cast ke any biar TypeScript gak rewel soal _count
+    const count = (item._count as any)?._all ?? 0;
+    statusCounts[item.status] = count;
+  });
 
   // ===== STATISTICS CARDS =====
   const statCards = [
@@ -133,7 +135,7 @@ export default async function AdminPage() {
     },
   ];
 
-  // ===== STATUS BADGES (EXPLICIT CLASS, JANGAN DYNAMIC) =====
+  // ===== STATUS BADGES =====
   const statusBadges = [
     {
       status: 'MENUNGGU',
