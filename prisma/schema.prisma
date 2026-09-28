@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== ENUM ROLE =====
+enum Role {
+  ADMIN
+  PETUGAS
+  MASYARAKAT
+}
+
+// ===== MODEL USER =====
+model User {
+  id            String          @id @default(uuid())
+  nama          String
+  email         String          @unique
+  noHp          String          @unique
+  password      String
+  role          Role            @default(MASYARAKAT)
+  saldo         Int             @default(0)   // ← TAMBAH INI (untuk reward)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  laporanSampah LaporanSampah[]
+  transaksi     Transaksi[]
+
+  @@map("users")
+}
+
+// ===== MODEL JENIS SAMPAH =====
+model JenisSampah {
+  id            String          @id @default(uuid())
+  namaJenis     String          @unique
+  deskripsi     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  laporanSampah LaporanSampah[]
+
+  @@map("jenis_sampah")
+}
+
+// ===== MODEL WILAYAH =====
+model Wilayah {
+  id            String          @id @default(uuid())
+  namaWilayah   String          @unique
+  deskripsi     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  laporanSampah LaporanSampah[]
+
+  @@map("wilayah")
+}
+
+// ===== MODEL LAPORAN SAMPAH =====
+model LaporanSampah {
+  id            String       @id @default(uuid())
+  berat         Float
+  tanggalLapor  DateTime     @default(now())
+  status        String       @default("MENUNGGU") // MENUNGGU, DIPROSES, SELESAI
+  userId        String
+  jenisSampahId String
+  wilayahId     String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // RELASI
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jenisSampah   JenisSampah  @relation(fields: [jenisSampahId], references: [id], onDelete: Restrict)
+  wilayah       Wilayah      @relation(fields: [wilayahId], references: [id], onDelete: Restrict)
+  fotoSampah    FotoSampah[] // Relasi 1-to-N (Banyak Foto)
+  penanganan    Penanganan?  // Relasi 1-to-1 (1 Berita Acara Penanganan)
+  transaksi     Transaksi?   // Relasi 1-to-1 (1 Transaksi reward)
+  
+  // INDEX
+  @@index([userId])
+  @@index([jenisSampahId])
+  @@index([wilayahId])
+  @@index([tanggalLapor])
+  @@index([status])
+  
+  @@map("laporan_sampah")
+}
+
+// ===== MODEL FOTO SAMPAH (1-TO-N) =====
+model FotoSampah {
+  id        String        @id @default(uuid())
+  imageUrl  String
+  laporanId String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  
+  laporan   LaporanSampah @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+
+  @@index([laporanId])
+  @@map("foto_sampah")
+}
+
+// ===== MODEL PENANGANAN (1-TO-1) =====
+model Penanganan {
+  id             String        @id @default(uuid())
+  catatanPetugas String
+  tanggalSelesai DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // KUNCI 1-TO-1: laporanId dibuat @unique
+  laporanId      String        @unique
+  laporan        LaporanSampah @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+
+  @@map("penanganan")
+}
+
+// ===== MODEL TRANSAKSI =====
+model Transaksi {
+  id          String   @id @default(uuid())
+  userId      String
+  laporanId   String?  @unique
+  tipe        String   // "MASUK" (reward) atau "KELUAR" (penarikan)
+  jumlah      Int      // jumlah rupiah
+  keterangan  String
+  status      String   @default("BERHASIL") // BERHASIL, PENDING, GAGAL
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  laporan     LaporanSampah? @relation(fields: [laporanId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("transaksi")
+}
